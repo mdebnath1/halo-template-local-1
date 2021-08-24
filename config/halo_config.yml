@@ -1,0 +1,148 @@
+
+pipeline:
+  type: Ingest
+
+  location_id: "NWTC"
+  dataset_name: "test_01"
+  qualifier: "lidar"
+  temporal: "10min"
+  data_level: "a1"
+
+dataset_definition:  # Describes the dataset that will be produced
+  attributes:
+    title: Lidar Ingest for Halo Lidar
+    description: ingest of data from Halo Lidar at NREL Flatirons Campus 
+    conventions: MHKiT-Cloud Data Standards v. 1.0
+    institution: NREL
+    code_url: https://github.com/clansing/tsdat/releases/tag/1.0
+    location_meaning: NREL Flatirons Campus
+    # location_id: NWTC_4.0
+    # instrument_id: WLS7-224
+    # data_level: b1
+
+  dimensions:
+    time:
+        length: unlimited
+    
+    range_gate:
+        length: 720
+
+  variables:
+
+    time:
+      input:
+        name: Timestamp
+        # converter:
+        #   classname: tsdat.utils.converters.DecimalTimeConverter
+        #   parameters:
+        #     timezone: UTC
+        #     unit: 'H'
+            # time_format: "%Y/%m/%d %H:%M"
+      dims: [time]
+      type: long
+      attrs:
+        long_name: Time (UTC)
+        standard_name: time
+        units: seconds since 1970-01-01T00:00:00
+    
+    azimuth:
+      dims: [time]
+      type: float
+      input:
+        name: Azimuth (degrees)
+      attrs:
+        long_name: Azimuth
+        units: deg
+
+    elevation:
+      dims: [time]
+      type: float
+      input:
+        name: Elevation (degrees)
+      attrs:
+        long_name: Elevation
+        units: deg
+
+    pitch:
+      dims: [time]
+      type: float
+      input:
+        name: Pitch (degrees)
+      attrs:
+        long_name: Pitch
+        units: deg
+
+    roll:
+      dims: [time]
+      type: float
+      input:
+        name: Roll (degrees)
+      attrs:
+        long_name: Roll
+        units: deg
+    
+    range_gate:
+      # data: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]
+      input:
+        name: range_gate
+      dims: [range_gate]
+      type: int
+      attrs:
+        long_name: Range gate
+        units: m
+    
+    doppler:
+      dims: [time, range_gate]
+      type: float
+      input:
+        name: Doppler
+      attrs:
+        long_name: Doppler
+        units: m/s
+
+    intensity:
+      dims: [time, range_gate]
+      type: float
+      attrs:
+        long_name: Intensity
+        units: mag
+      input:
+        name: Intensity
+    
+    
+#-----------------------------------------------------------------
+quality_management:
+
+  #---------------------------------------------------------------
+  manage_missing_coordinates:
+    checker:
+      classname: tsdat.qc.checkers.CheckMissing
+    handlers:
+      - classname: tsdat.qc.handlers.FailPipeline
+    variables:
+      - COORDS
+
+  manage_coordinate_monotonicity:
+    checker:
+      classname: tsdat.qc.checkers.CheckMonotonic
+    handlers:
+      - classname: tsdat.qc.handlers.SortDatasetByCoordinate
+        parameters:
+          ascending: True
+          correction: "Coordinate data was sorted in order to ensure monotonicity."
+    variables:
+      - COORDS
+
+  #---------------------------------------------------------------
+  manage_missing_values:
+    checker:
+      classname: tsdat.qc.checkers.CheckMissing
+    handlers:
+      - classname: tsdat.qc.handlers.RemoveFailedValues
+      - classname: tsdat.qc.handlers.RecordQualityResults
+        parameters:
+          bit: 1
+          assessment: Bad
+          meaning: "Value is equal to _FillValue or NaN"
+    variables:
+      - DATA_VARS

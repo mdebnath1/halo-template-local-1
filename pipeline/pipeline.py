@@ -89,6 +89,15 @@ class Pipeline(IngestPipeline):
             dataset["wind_direction"].data = new_direction
             dataset["wind_direction"].attrs["corrections_applied"] = "Applied +180 degree calibration factor."
 
+        # convert range gate to distance and change coords
+        if ".hpl" in raw_filename:
+            dataset["distance"] = ("range_gate", dataset.coords["range_gate"].data * dataset.attrs["Range gate length (m)"])
+            dataset = dataset.swap_dims({"range_gate":"distance"})
+
+            dataset["SNR"] = 10 * np.log10(dataset.intensity - 1)
+
+
+
         return dataset
 
     def hook_finalize_dataset(self, dataset: xr.Dataset) -> xr.Dataset:
@@ -165,63 +174,91 @@ class Pipeline(IngestPipeline):
             fig.suptitle(f"Wind Speed Time Series at {ds.attrs['location_meaning']} on {date}")
 
             # Select heights to plot
-            heights = [40, 90, 140, 200]
+            distances = [54, 1080, 3960, 12654]
 
             # Plot the data
-            for i, height in enumerate(heights):
-                velocity = ds.wind_speed.sel(height=height)
-                velocity.plot(ax=ax, linewidth=2, c=wind_cmap(i / len(heights)), label=f"{height} m")
+            for i, dist in enumerate(distances):
+                velocity = ds.doppler.sel(distance=dist)
+                velocity.plot(ax=ax, linewidth=2, c=wind_cmap(i / len(distances)), label=f"{dist} m")
 
             # Set the labels and ticks
             format_time_xticks(ax)
-            ax.legend(facecolor="white", ncol=len(heights), bbox_to_anchor=(1, -0.05))
+            ax.legend(facecolor="white", ncol=len(distances), bbox_to_anchor=(1, -0.05))
             ax.set_title("")  # Remove bogus title created by xarray
             ax.set_xlabel("Time (UTC)")
-            ax.set_ylabel(r"Wind Speed (ms$^{-1}$)")
+            ax.set_ylabel("Wind Speed (ms$^{-1}$)")
 
             # Save the figure
             fig.savefig(tmp_path, dpi=100)
             self.storage.save(tmp_path)
             plt.close()
 
-        filename = DSUtil.get_plot_filename(dataset, "wind_speed_and_direction", "png")
+        # Create the first plot - Lidar Wind Speeds at several elevations
+        filename = DSUtil.get_plot_filename(dataset, "SNR", "png")
         with self.storage._tmp.get_temp_filepath(filename) as tmp_path:
 
-            # Reduce dimensionality of dataset for plotting quivers
-            ds_1H: xr.Dataset = ds.resample(time="1H").nearest()
+            # Create the figure and axes objects
+            fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(14, 8), constrained_layout=True)
+            fig.suptitle(f"Wind Speed Time Series at {ds.attrs['location_meaning']} on {date}")
 
-            # Calculations for contour plots
-            levels = 30
+            # Select heights to plot
+            distances = [54, 1080, 3960, 12654]
 
-            # Calculations for quiver plot
-            qv_slice = slice(1, None)  # Skip first to prevent weird overlap with axes borders
-            qv_degrees = ds_1H.wind_direction.data[qv_slice].transpose()
-            qv_theta = (qv_degrees + 90) * (np.pi / 180)
-            X, Y = ds_1H.time.data[qv_slice], ds_1H.height.data
-            U, V = np.cos(-qv_theta), np.sin(-qv_theta)
-
-            # Create figure and axes objects
-            fig, axs = plt.subplots(nrows=2, figsize=(14, 8), constrained_layout=True)
-            fig.suptitle(f"Wind Speed and Direction at {ds.attrs['location_meaning']} on {date}")
-
-            # Make top subplot -- contours and quiver plots for wind speed and direction
-            csf = ds.wind_speed.plot.contourf(ax=axs[0], x="time", levels=levels, cmap=wind_cmap, add_colorbar=False)
-            axs[0].quiver(X, Y, U, V, width=0.002, scale=60, color="white", pivot='middle', zorder=10)
-            add_colorbar(axs[0], csf, r"Wind Speed (ms$^{-1}$)")
-
-            # Make bottom subplot -- heatmap for data availability
-            da = ds.data_availability.plot(ax=axs[1], x="time", cmap=avail_cmap, add_colorbar=False, vmin=0, vmax=100)
-            add_colorbar(axs[1], da, "Availability (%)")
+            # Plot the data
+            for i, dist in enumerate(distances):
+                SNR = ds.SNR.sel(distance=dist)
+                SNR.plot(ax=ax, linewidth=2, c=wind_cmap(i / len(distances)), label=f"{dist} m")
 
             # Set the labels and ticks
-            for i in range(2):
-                format_time_xticks(axs[i])
-                axs[i].set_xlabel("Time (UTC)")
-                axs[i].set_ylabel("Height ASL (m)")
+            format_time_xticks(ax)
+            ax.legend(facecolor="white", ncol=len(distances), bbox_to_anchor=(1, -0.05))
+            ax.set_title("")  # Remove bogus title created by xarray
+            ax.set_xlabel("Time (UTC)")
+            ax.set_ylabel("SNR (dB)")
 
             # Save the figure
             fig.savefig(tmp_path, dpi=100)
             self.storage.save(tmp_path)
             plt.close()
+
+        # filename = DSUtil.get_plot_filename(dataset, "wind_speed_and_direction", "png")
+        # with self.storage._tmp.get_temp_filepath(filename) as tmp_path:
+
+        #     # Reduce dimensionality of dataset for plotting quivers
+        #     ds_1H: xr.Dataset = ds.resample(time="1H").nearest()
+
+        #     # Calculations for contour plots
+        #     levels = 30
+
+        #     # Calculations for quiver plot
+        #     qv_slice = slice(1, None)  # Skip first to prevent weird overlap with axes borders
+        #     qv_degrees = ds_1H.wind_direction.data[qv_slice].transpose()
+        #     qv_theta = (qv_degrees + 90) * (np.pi / 180)
+        #     X, Y = ds_1H.time.data[qv_slice], ds_1H.height.data
+        #     U, V = np.cos(-qv_theta), np.sin(-qv_theta)
+
+        #     # Create figure and axes objects
+        #     fig, axs = plt.subplots(nrows=2, figsize=(14, 8), constrained_layout=True)
+        #     fig.suptitle(f"Wind Speed and Direction at {ds.attrs['location_meaning']} on {date}")
+
+        #     # Make top subplot -- contours and quiver plots for wind speed and direction
+        #     csf = ds.wind_speed.plot.contourf(ax=axs[0], x="time", levels=levels, cmap=wind_cmap, add_colorbar=False)
+        #     axs[0].quiver(X, Y, U, V, width=0.002, scale=60, color="white", pivot='middle', zorder=10)
+        #     add_colorbar(axs[0], csf, r"Wind Speed (ms$^{-1}$)")
+
+        #     # Make bottom subplot -- heatmap for data availability
+        #     da = ds.data_availability.plot(ax=axs[1], x="time", cmap=avail_cmap, add_colorbar=False, vmin=0, vmax=100)
+        #     add_colorbar(axs[1], da, "Availability (%)")
+
+        #     # Set the labels and ticks
+        #     for i in range(2):
+        #         format_time_xticks(axs[i])
+        #         axs[i].set_xlabel("Time (UTC)")
+        #         axs[i].set_ylabel("Height ASL (m)")
+
+        #     # Save the figure
+        #     fig.savefig(tmp_path, dpi=100)
+        #     self.storage.save(tmp_path)
+        #     plt.close()
 
         return
