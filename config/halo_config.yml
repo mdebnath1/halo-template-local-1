@@ -99,6 +99,7 @@ dataset_definition:  # Describes the dataset that will be produced
       attrs:
         long_name: Doppler
         units: m/s
+        valid_delta: 1
 
     intensity:
       dims: [time, range_gate]
@@ -132,6 +133,21 @@ quality_management:
           correction: "Coordinate data was sorted in order to ensure monotonicity."
     variables:
       - COORDS
+
+  manage_valid_delta:
+    checker:
+      classname: tsdat.qc.checkers.CheckValidDelta
+      parameters:
+        dim: time  # specifies the dimension over which to compute the delta
+    handlers:
+      - classname: tsdat.qc.handlers.RemoveFailedValues
+      - classname: tsdat.qc.handlers.RecordQualityResults
+        parameters:
+          bit: 6
+          assessment: "Indeterminate"
+          meaning: "Difference between current and previous values exceeds valid_delta."
+    variables:
+      - doppler
 
   #---------------------------------------------------------------
   manage_missing_values:
