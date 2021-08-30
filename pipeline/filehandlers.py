@@ -111,7 +111,7 @@ class HplHandler(AbstractFileHandler):
                 index += 1
 
                 # print status
-                if index % 100 == 0:
+                if True and index % 100 == 0:
                     print(time[index-1])
                     
 
@@ -139,12 +139,12 @@ class HplHandler(AbstractFileHandler):
             metadata['Start time'][0][1:5],     # year
             metadata['Start time'][0][5:7],     # month
             metadata['Start time'][0][7:9],     # day
-            metadata['Start time'][0][10:12],   # hour
-            metadata['Start time'][1],          # minute
-            metadata['Start time'][2][:-1]      # second
+            '00',           # hour
+            '00',           # minute
+            '00.00'         # second
         )
-        start_time  = np.datetime64(start_time_string)
-        dtimes      = np.array((dataset['Decimal time (hours)']))
+        start_time  = np.datetime64(start_time_string)      
+        dtimes      = np.array((dataset['Decimal time (hours)']))       #relative to start of day (start_time)
         tt          = []
         for i, t in enumerate(dtimes):
             tt.append(start_time + np.timedelta64(int(3600 * 1e6 *t),'us'))
