@@ -15,6 +15,7 @@ def run_pipeline(mode: str = 'prod', input_files: List[str] = []):
     package_dir = os.path.dirname(os.path.realpath(__file__))
     project_dir = os.path.dirname(package_dir)
     data_dir = os.path.join(project_dir, 'data')
+    data_dir = '/Volumes/shared/Wind/Confidential/Projects/AWAKEN/Lidar/Halo/20210510'
     config_dir = os.path.join(project_dir, 'config')
 
     pipeline_config = os.path.join(config_dir, 'halo_config.yml')
