@@ -2,10 +2,10 @@
 pipeline:
   type: Ingest
 
-  location_id: "NWTC"
-  dataset_name: "test_01"
+  location_id: "nwtc"
+  dataset_name: "z01"
   qualifier: "lidar"
-  temporal: "10min"
+  # temporal: "10min"
   data_level: "a1"
 
 dataset_definition:  # Describes the dataset that will be produced
@@ -44,6 +44,23 @@ dataset_definition:  # Describes the dataset that will be produced
         long_name: Time (UTC)
         standard_name: time
         units: seconds since 1970-01-01T00:00:00
+
+    range_gate:
+      input:
+        name: range_gate
+      dims: [range_gate]
+      type: int
+      attrs:
+        long_name: Range gate
+
+    distance:
+      input:
+        name: distance
+      dims: [range_gate]
+      type: int
+      attrs:
+        long_name: Distance LOS measurement is taken from Lidar
+        units: m
     
     azimuth:
       dims: [time]
@@ -80,16 +97,6 @@ dataset_definition:  # Describes the dataset that will be produced
       attrs:
         long_name: Roll
         units: deg
-    
-    range_gate:
-      # data: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]
-      input:
-        name: range_gate
-      dims: [range_gate]
-      type: int
-      attrs:
-        long_name: Range gate
-        units: m
     
     doppler:
       dims: [time, range_gate]
@@ -143,7 +150,7 @@ quality_management:
       - classname: tsdat.qc.handlers.RemoveFailedValues
       - classname: tsdat.qc.handlers.RecordQualityResults
         parameters:
-          bit: 6
+          bit: 2
           assessment: "Indeterminate"
           meaning: "Difference between current and previous values exceeds valid_delta."
     variables:

@@ -8,7 +8,7 @@ import numpy as np
 
 class HplHandler(AbstractFileHandler):
     """-------------------------------------------------------------------
-    Custom file handler for reading *.sta files.
+    Custom file handler for reading *.hpl files from a Halo photonics lidar
 
     See https://tsdat.readthedocs.io/ for more file handler examples.
     -------------------------------------------------------------------"""
@@ -62,30 +62,18 @@ class HplHandler(AbstractFileHandler):
             for line_num in range(6):
                 f.readline()
                 
-                
-            # while there is a file
-            df_new = pd.DataFrame()
             
             max_len = 10000
             # initialize arrays
-            time            = np.empty(max_len)
-            azimuth         = np.empty(max_len)
-            elevation       = np.empty(max_len)
-            pitch           = np.empty(max_len)
-            roll            = np.empty(max_len)
-            doppler         = np.empty((max_len,num_gates))
-            intensity       = np.empty((max_len,num_gates))
-            beta            = np.empty((max_len,num_gates))
-            
-            time[:]         = np.nan
-            azimuth[:]      = np.nan
-            elevation[:]    = np.nan
-            pitch[:]        = np.nan
-            roll[:]         = np.nan
-            doppler[:]      = np.nan
-            intensity[:]    = np.nan
-            beta[:]         = np.nan
-            
+            time            = np.full(max_len, fill_value=np.nan)
+            azimuth         = np.full(max_len, fill_value=np.nan)
+            elevation       = np.full(max_len, fill_value=np.nan)
+            pitch           = np.full(max_len, fill_value=np.nan)
+            roll            = np.full(max_len, fill_value=np.nan)
+            doppler         = np.full((max_len,num_gates), fill_value=np.nan)
+            intensity       = np.full((max_len,num_gates), fill_value=np.nan)
+            beta            = np.full((max_len,num_gates), fill_value=np.nan)
+                        
             index = 0
             
             while True:
@@ -110,29 +98,13 @@ class HplHandler(AbstractFileHandler):
                 # increment index
                 index += 1
 
-                # print status
-                if True and index % 100 == 0:
-                    print(time[index-1])
+                # # print status
+                # if True and index % 100 == 0:
+                #     print(time[index-1])
                     
 
         # Trim data where first time index is nan
         last_ind = np.where(np.isnan(time))[0][0]
-
-        # Convert to Dataset
-        dataset = xr.Dataset()
-
-        index = np.arange(len(time[:last_ind]))
-
-        dataset.coords["range_gate"] = np.arange(num_gates)
-        dataset['Decimal time (hours)'] = (("time"), time[:last_ind])
-        dataset['Azimuth (degrees)'] = (("time"), azimuth[:last_ind])
-        dataset['Elevation (degrees)'] = (("time"), elevation[:last_ind])
-        dataset['Pitch (degrees)'] = (("time"), pitch[:last_ind])
-        dataset['Roll (degrees)'] = (("time"), roll[:last_ind])
-
-        dataset['Doppler'] = (("time","range_gate"), doppler[:last_ind,:]) 
-        dataset['Intensity'] = (("time","range_gate"), intensity[:last_ind,:]) 
-        dataset['Beta'] = (("time","range_gate"), intensity[:last_ind,:]) 
 
         # convert date to np.datetime64
         start_time_string = '{}-{}-{}T{}:{}:{}'.format(
@@ -144,15 +116,30 @@ class HplHandler(AbstractFileHandler):
             '00.00'         # second
         )
         start_time  = np.datetime64(start_time_string)      
-        dtimes      = np.array((dataset['Decimal time (hours)']))       #relative to start of day (start_time)
+        dtimes      = time[:last_ind]
         tt          = []
         for i, t in enumerate(dtimes):
             tt.append(start_time + np.timedelta64(int(3600 * 1e6 *t),'us'))
 
-        dataset['Timestamp'] = (("time"), np.array(tt))
-        dataset.coords["time"] = np.array(tt)
-
-        # Save some attributes
-        dataset.attrs['Range gate length (m)']  = float(metadata['Range gate length (m)'])
+        dataset = xr.Dataset(
+            {
+                'Decimal time (hours)' :   (("time"), time[:last_ind]),
+                'Timestamp' :              (("time"), np.array(tt)),
+                'Azimuth (degrees)' :      (("time"), azimuth[:last_ind]),
+                'Elevation (degrees)' :    (("time"), elevation[:last_ind]),
+                'Pitch (degrees)' :        (("time"), pitch[:last_ind]),
+                'Roll (degrees)' :         (("time"), roll[:last_ind]),
+                'Doppler' :                (("time","range_gate"), doppler[:last_ind,:]),
+                'Intensity' :              (("time","range_gate"), intensity[:last_ind,:]),
+                'Beta' :                   (("time","range_gate"), beta[:last_ind,:]),
+            },
+            coords = {
+                "time": np.array(tt),
+                "range_gate": np.arange(num_gates)
+            },
+            attrs = {
+                "Range gate length (m)": float(metadata['Range gate length (m)'])
+            }
+        )
 
         return dataset

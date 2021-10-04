@@ -17,7 +17,7 @@ plt.style.use(style_file)
 
 class Pipeline(IngestPipeline):
     """Example tsdat ingest pipeline used to process lidar instrument data from
-    a buoy stationed at Morro Bay, California.
+    a Halo Photonics Lidar as part of the AWAKEN project. 
 
     See https://tsdat.readthedocs.io/ for more on configuring tsdat pipelines.
     """
@@ -72,31 +72,12 @@ class Pipeline(IngestPipeline):
         
         # Compress row of variables in input into variables dimensioned by time and height
         for raw_filename, raw_dataset in raw_mapping.items():
-            if ".sta" in raw_filename:
-                raw_categories = ["Wind Speed (m/s)", "Wind Direction (�)", "Data Availability (%)"]
-                output_var_names = ["wind_speed", "wind_direction", "data_availability"]
-                heights = dataset.height.data
-                for category, output_name in zip(raw_categories, output_var_names):
-                    var_names = [f"{height}m {category}" for height in heights]
-                    var_data = [raw_dataset[name].data for name in var_names]
-                    var_data = np.array(var_data).transpose()
-                    dataset[output_name].data = var_data
+            # convert range gate to distance and change coords
+            if ".hpl" in raw_filename:
+                dataset["distance"] = ("range_gate", dataset.coords["range_gate"].data * dataset.attrs["Range gate length (m)"])
+                dataset = dataset.swap_dims({"range_gate":"distance"})
 
-        # Apply correction to buoy at morro bay -- wind direction is off by 180 degrees
-        if "morro" in dataset.attrs["datastream_name"]:
-            new_direction = dataset["wind_direction"].data + 180
-            new_direction[new_direction >= 360] -= 360
-            dataset["wind_direction"].data = new_direction
-            dataset["wind_direction"].attrs["corrections_applied"] = "Applied +180 degree calibration factor."
-
-        # convert range gate to distance and change coords
-        if ".hpl" in raw_filename:
-            dataset["distance"] = ("range_gate", dataset.coords["range_gate"].data * dataset.attrs["Range gate length (m)"])
-            dataset = dataset.swap_dims({"range_gate":"distance"})
-
-            dataset["SNR"] = 10 * np.log10(dataset.intensity - 1)
-
-
+                dataset["SNR"] = 10 * np.log10(dataset.intensity - 1)
 
         return dataset
 
@@ -165,62 +146,6 @@ class Pipeline(IngestPipeline):
         wind_cmap = cmocean.cm.deep_r
         avail_cmap = cmocean.cm.amp_r
 
-        # # Create the first plot - Lidar Wind Speeds at several elevations
-        # filename = DSUtil.get_plot_filename(dataset, "wind_speeds", "png")
-        # with self.storage._tmp.get_temp_filepath(filename) as tmp_path:
-
-        #     # Create the figure and axes objects
-        #     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(14, 8), constrained_layout=True)
-        #     fig.suptitle(f"Wind Speed Time Series at {ds.attrs['location_meaning']} on {date}")
-
-        #     # Select heights to plot
-        #     distances = [54, 1080, 3960, 12654]
-
-        #     # Plot the data
-        #     for i, dist in enumerate(distances):
-        #         velocity = ds.doppler.sel(distance=dist)
-        #         velocity.plot(ax=ax, linewidth=2, c=wind_cmap(i / len(distances)), label=f"{dist} m")
-
-        #     # Set the labels and ticks
-        #     format_time_xticks(ax)
-        #     ax.legend(facecolor="white", ncol=len(distances), bbox_to_anchor=(1, -0.05))
-        #     ax.set_title("")  # Remove bogus title created by xarray
-        #     ax.set_xlabel("Time (UTC)")
-        #     ax.set_ylabel("Wind Speed (ms$^{-1}$)")
-
-        #     # Save the figure
-        #     fig.savefig(tmp_path, dpi=100)
-        #     self.storage.save(tmp_path)
-        #     plt.close()
-
-        # # Create the first plot - Lidar Wind Speeds at several elevations
-        # filename = DSUtil.get_plot_filename(dataset, "SNR", "png")
-        # with self.storage._tmp.get_temp_filepath(filename) as tmp_path:
-
-        #     # Create the figure and axes objects
-        #     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(14, 8), constrained_layout=True)
-        #     fig.suptitle(f"Wind Speed Time Series at {ds.attrs['location_meaning']} on {date}")
-
-        #     # Select heights to plot
-        #     distances = [54, 1080, 3960, 12654]
-
-        #     # Plot the data
-        #     for i, dist in enumerate(distances):
-        #         SNR = ds.SNR.sel(distance=dist)
-        #         SNR.plot(ax=ax, linewidth=2, c=wind_cmap(i / len(distances)), label=f"{dist} m")
-
-        #     # Set the labels and ticks
-        #     format_time_xticks(ax)
-        #     ax.legend(facecolor="white", ncol=len(distances), bbox_to_anchor=(1, -0.05))
-        #     ax.set_title("")  # Remove bogus title created by xarray
-        #     ax.set_xlabel("Time (UTC)")
-        #     ax.set_ylabel("SNR (dB)")
-
-        #     # Save the figure
-        #     fig.savefig(tmp_path, dpi=100)
-        #     self.storage.save(tmp_path)
-        #     plt.close()
-
         filename = DSUtil.get_plot_filename(dataset, "wind_speed_v_dist_time", "png")
         with self.storage._tmp.get_temp_filepath(filename) as tmp_path:
 
@@ -259,7 +184,7 @@ class Pipeline(IngestPipeline):
 
             # Create figure and axes objects
             fig, axs = plt.subplots(nrows=1, figsize=(14, 8), constrained_layout=True)
-            fig.suptitle(f"Wind Speed at {ds.attrs['location_meaning']} on {date}")
+            fig.suptitle(f"Signal to Noise Ratio at {ds.attrs['location_meaning']} on {date}")
 
             # Make top subplot -- contours and quiver plots for wind speed and direction
             SNR_v_dist = ds.SNR.where(ds.distance < 5000,drop=True)
