@@ -88,12 +88,15 @@ class Pipeline(IngestPipeline):
             new_direction[new_direction >= 360] -= 360
             dataset["wind_direction"].data = new_direction
             dataset["wind_direction"].attrs["corrections_applied"] = "Applied +180 degree calibration factor."
-        
+
         # convert range gate to distance and change coords
         if ".hpl" in raw_filename:
-            dataset["distance"] = ("range_gate", dataset.coords["range_gate"].data * dataset.attrs["Range gate length (m)"] + dataset.attrs["Range gate length (m)"]/2)
-            dataset["distance_overlapped"] = ("range_gate", dataset.coords["range_gate"].data * 1.5 + dataset.attrs["Range gate length (m)"]/2)
+            dataset["distance"] = ("range_gate", dataset.coords["range_gate"].data * dataset.attrs["Range gate length (m)"]+ dataset.attrs["Range gate length (m)"]/2)
+            dataset["distance_overlapped"] = ("range_gate", dataset.coords["range_gate"].data*1.5+ dataset.attrs["Range gate length (m)"]/2) 
+            dataset = dataset.swap_dims({"range_gate":"distance"})
             dataset["SNR"] = 10 * np.log10(dataset.intensity - 1)
+            ## dataset = dataset.swap_dims({"range_gate":"distance"})
+
 
         return dataset
 

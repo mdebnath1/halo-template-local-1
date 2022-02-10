@@ -48,7 +48,7 @@ dataset_definition:
         units: m
 
     wind_speed:
-      dims: [time, height]
+      dims: [time, range_gate]
       type: float
       attrs:
         long_name: Wind Speed
@@ -61,7 +61,7 @@ dataset_definition:
         units: m/s
 
     wind_direction:
-      dims: [time, height]
+      dims: [time, range_gate]
       type: float
       attrs:
         long_name: Wind Direction
@@ -74,7 +74,7 @@ dataset_definition:
         units: degrees
 
     data_availability:
-      dims: [time, height]
+      dims: [time, range_gate]
       type: float
       attrs:
         long_name: Availability
